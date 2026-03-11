@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import toast from "react-hot-toast";
-import API_BASE_URL from "../api";
+import API_BASE_URL from "../../api";
 
 function RegisterStaff() {
 

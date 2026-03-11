@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import toast from "react-hot-toast";
 import React from "react";
-import API_BASE_URL from "../api";
+import API_BASE_URL from "../../api";
 
 function AddService() {
   const [categories, setCategories] = useState([]);

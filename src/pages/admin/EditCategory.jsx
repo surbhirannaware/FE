@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
-import API_BASE_URL from "../api";
+import API_BASE_URL from "../../api";
 
 function EditCategory() {
   const token = localStorage.getItem("token");

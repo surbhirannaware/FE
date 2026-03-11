@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { getUpcomingAppointments } from "../../services/staffApi";
 import React from "react";
-import API_BASE_URL from "../api";
+import API_BASE_URL from "../../api";
 
 function StaffUpcoming() {
   const [appointments, setAppointments] = useState([]);

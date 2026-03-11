@@ -1,7 +1,7 @@
 import React , { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
-import API_BASE_URL from "../api";
+import API_BASE_URL from "../../api";
 
 export default function EditService() {
   const { id } = useParams();

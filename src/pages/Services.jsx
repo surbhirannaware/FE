@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import toast from "react-hot-toast";
 import { Pencil, Trash2 } from "lucide-react";
-import API_BASE_URL from "./api";
+import API_BASE_URL from "../api";
 
 export default function Services() {
   const [services, setServices] = useState([]);

@@ -1,7 +1,7 @@
  import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
-import API_BASE_URL from "../api";
+import API_BASE_URL from "../../api";
 
 function Dashboard() {
   const location = useLocation();

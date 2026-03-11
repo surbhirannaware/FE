@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import toast from "react-hot-toast";
-import API_BASE_URL from "../api";
+import API_BASE_URL from "../../api";
 
 export default function ApplyLeave() {
   const today = new Date().toISOString().split("T")[0];

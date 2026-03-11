@@ -5,7 +5,7 @@ import {
 } from "../../services/staffApi";
 import toast from "react-hot-toast";
 import React from "react";
-import API_BASE_URL from "../api";
+import API_BASE_URL from "../../api";
 
 function StaffToday() {
   const [data, setData] = useState(null);

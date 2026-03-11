@@ -1,5 +1,5 @@
  import React, { useEffect, useState } from "react";
-import API_BASE_URL from "../api";
+import API_BASE_URL from "../../api";
 
 export default function AdminLeaves() {
   const [leaves, setLeaves] = useState([]);
