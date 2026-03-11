@@ -1,0 +1,467 @@
+import React, { useState, useEffect } from "react";
+import toast from "react-hot-toast";
+import API_BASE_URL from "../api";
+
+export default function ApplyLeave() {
+  const today = new Date().toISOString().split("T")[0];
+
+  const [form, setForm] = useState({
+    leaveDate: "",
+    startTime: "",
+    endTime: "",
+    reason: "",
+    isFullDay: false,
+  });
+
+  const [errors, setErrors] = useState({});
+  const [leaves, setLeaves] = useState([]);
+  const [loadingLeaves, setLoadingLeaves] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [cancellingId, setCancellingId] = useState(null);
+
+  const fetchLeaves = async () => {
+    try {
+      setLoadingLeaves(true);
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/staff-leaves/my-leaves`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch leave history");
+      }
+
+      const data = await response.json();
+      setLeaves(data);
+    } catch (err) {
+      toast.error(err.message || "Failed to load leave history");
+    } finally {
+      setLoadingLeaves(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchLeaves();
+  }, []);
+
+  const validate = () => {
+    const newErrors = {};
+
+    if (!form.leaveDate) {
+      newErrors.leaveDate = "Leave date is required";
+    }
+
+    if (form.leaveDate && form.leaveDate < today) {
+      newErrors.leaveDate = "Cannot apply leave for past date";
+    }
+
+    if (!form.isFullDay) {
+      if (!form.startTime) {
+        newErrors.startTime = "Start time is required";
+      }
+
+      if (!form.endTime) {
+        newErrors.endTime = "End time is required";
+      }
+
+      if (
+        form.startTime &&
+        form.endTime &&
+        form.startTime >= form.endTime
+      ) {
+        newErrors.endTime = "End time must be greater than start time";
+      }
+    }
+
+    if (!form.reason.trim()) {
+      newErrors.reason = "Reason is required";
+    }
+
+    setErrors(newErrors);
+
+    if (Object.keys(newErrors).length > 0) {
+      toast.error("Please fix the errors before submitting.");
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleSubmit = async () => {
+    if (!validate()) return;
+
+    try {
+      setSubmitting(true);
+
+      const payload = {
+        leaveDate: form.leaveDate,
+        startTime: form.isFullDay ? null : form.startTime,
+        endTime: form.isFullDay ? null : form.endTime,
+        reason: form.reason.trim(),
+      };
+
+      const response = await fetch(`${API_BASE_URL}/api/staff-leaves`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error || "Failed to submit leave request");
+      }
+
+      toast.success("Leave request submitted successfully!");
+
+      setForm({
+        leaveDate: "",
+        startTime: "",
+        endTime: "",
+        reason: "",
+        isFullDay: false,
+      });
+
+      setErrors({});
+      await fetchLeaves();
+    } catch (err) {
+      toast.error(err.message || "Something went wrong");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleCancelLeave = async (leaveId) => {
+    try {
+      setCancellingId(leaveId);
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/staff-leaves/${leaveId}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error || "Failed to cancel leave");
+      }
+
+      toast.success("Leave cancelled successfully");
+      await fetchLeaves();
+    } catch (err) {
+      toast.error(err.message || "Failed to cancel leave");
+    } finally {
+      setCancellingId(null);
+    }
+  };
+
+  const formatDate = (dateValue) => {
+    if (!dateValue) return "-";
+    return new Date(dateValue).toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  };
+
+  const formatTime = (timeValue) => {
+    if (!timeValue) return "Full Day";
+
+    const date = new Date(`1970-01-01T${timeValue}`);
+    return date.toLocaleTimeString("en-IN", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+  };
+
+  const getStatusBadge = (status) => {
+    const baseClass =
+      "px-3 py-1 rounded-full text-xs font-semibold inline-block";
+
+    switch (status) {
+      case "Approved":
+        return `${baseClass} bg-green-100 text-green-700`;
+      case "Rejected":
+        return `${baseClass} bg-red-100 text-red-700`;
+      case "Pending":
+        return `${baseClass} bg-yellow-100 text-yellow-700`;
+      default:
+        return `${baseClass} bg-gray-100 text-gray-700`;
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-100 p-6 md:p-8">
+      <div className="max-w-5xl mx-auto space-y-8">
+        {/* Apply Leave Form */}
+        <div className="bg-white rounded-2xl shadow-lg p-6 md:p-8">
+          <h2 className="text-2xl font-semibold text-gray-800 mb-6 text-center">
+            Apply Leave
+          </h2>
+
+          <div className="mb-5">
+            <label className="block text-sm font-medium text-gray-600 mb-2">
+              Leave Date
+            </label>
+            <input
+              type="date"
+              min={today}
+              value={form.leaveDate}
+              onChange={(e) =>
+                setForm({ ...form, leaveDate: e.target.value })
+              }
+              className="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-400 outline-none"
+            />
+            {errors.leaveDate && (
+              <p className="text-red-500 text-sm mt-1">{errors.leaveDate}</p>
+            )}
+          </div>
+
+          <div className="flex items-center mb-5">
+            <input
+              type="checkbox"
+              checked={form.isFullDay}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  isFullDay: e.target.checked,
+                  startTime: "",
+                  endTime: "",
+                })
+              }
+              className="mr-2 h-4 w-4 text-blue-600"
+            />
+            <label className="text-sm text-gray-700">Full Day Leave</label>
+          </div>
+
+          {!form.isFullDay && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-2">
+                  Start Time
+                </label>
+                <input
+                  type="time"
+                  value={form.startTime}
+                  onChange={(e) =>
+                    setForm({ ...form, startTime: e.target.value })
+                  }
+                  className="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-400 outline-none"
+                />
+                {errors.startTime && (
+                  <p className="text-red-500 text-sm mt-1">{errors.startTime}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-2">
+                  End Time
+                </label>
+                <input
+                  type="time"
+                  value={form.endTime}
+                  onChange={(e) =>
+                    setForm({ ...form, endTime: e.target.value })
+                  }
+                  className="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-400 outline-none"
+                />
+                {errors.endTime && (
+                  <p className="text-red-500 text-sm mt-1">{errors.endTime}</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-600 mb-2">
+              Reason
+            </label>
+            <textarea
+              rows="4"
+              value={form.reason}
+              onChange={(e) =>
+                setForm({ ...form, reason: e.target.value })
+              }
+              placeholder="Enter reason for leave..."
+              className="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-400 outline-none"
+            />
+            {errors.reason && (
+              <p className="text-red-500 text-sm mt-1">{errors.reason}</p>
+            )}
+          </div>
+
+          <button
+            onClick={handleSubmit}
+            disabled={submitting}
+            className="w-full bg-blue-600 text-white py-3 rounded-xl font-medium hover:bg-blue-700 transition duration-200 shadow-md disabled:opacity-60"
+          >
+            {submitting ? "Submitting..." : "Submit Leave Request"}
+          </button>
+        </div>
+
+        {/* Leave History */}
+        <div className="bg-white rounded-2xl shadow-lg p-6 md:p-8">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-2xl font-semibold text-gray-800">
+              My Leave History
+            </h3>
+            <button
+              onClick={fetchLeaves}
+              className="px-4 py-2 rounded-lg border text-sm font-medium hover:bg-gray-50"
+            >
+              Refresh
+            </button>
+          </div>
+
+          {loadingLeaves ? (
+            <p className="text-gray-500">Loading leave history...</p>
+          ) : leaves.length === 0 ? (
+            <div className="text-center py-10 bg-gray-50 rounded-xl border border-dashed">
+              <p className="text-gray-500">No leave requests found.</p>
+            </div>
+          ) : (
+            <>
+              {/* Desktop Table */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="bg-gray-100 text-left text-sm text-gray-700">
+                      <th className="px-4 py-3 rounded-l-xl">Date</th>
+                      <th className="px-4 py-3">Time</th>
+                      <th className="px-4 py-3">Reason</th>
+                      <th className="px-4 py-3">Status</th>
+                      <th className="px-4 py-3">Remark</th>
+                      <th className="px-4 py-3 rounded-r-xl text-center">
+                        Action
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {leaves.map((leave) => (
+                      <tr
+                        key={leave.staffLeaveId}
+                        className="border-b last:border-b-0"
+                      >
+                        <td className="px-4 py-4 text-sm text-gray-700">
+                          {formatDate(leave.leaveDate)}
+                        </td>
+                        <td className="px-4 py-4 text-sm text-gray-700">
+                          {leave.startTime && leave.endTime
+                            ? `${formatTime(leave.startTime)} - ${formatTime(
+                                leave.endTime
+                              )}`
+                            : "Full Day"}
+                        </td>
+                        <td className="px-4 py-4 text-sm text-gray-700 max-w-xs">
+                          <div className="truncate" title={leave.reason}>
+                            {leave.reason || "-"}
+                          </div>
+                        </td>
+                        <td className="px-4 py-4 text-sm">
+                          <span className={getStatusBadge(leave.status)}>
+                            {leave.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-4 text-sm text-gray-700">
+                          {leave.adminRemark || "-"}
+                        </td>
+                        <td className="px-4 py-4 text-center">
+                          {leave.isActive && leave.status === "Pending" ? (
+                            <button
+                              onClick={() =>
+                                handleCancelLeave(leave.staffLeaveId)
+                              }
+                              disabled={cancellingId === leave.staffLeaveId}
+                              className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-lg text-sm disabled:opacity-60"
+                            >
+                              {cancellingId === leave.staffLeaveId
+                                ? "Cancelling..."
+                                : "Cancel"}
+                            </button>
+                          ) : (
+                            <span className="text-gray-400 text-sm">-</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile Cards */}
+              <div className="md:hidden space-y-4">
+                {leaves.map((leave) => (
+                  <div
+                    key={leave.staffLeaveId}
+                    className="border rounded-xl p-4 shadow-sm bg-gray-50"
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <p className="text-sm text-gray-500">Date</p>
+                        <p className="font-medium text-gray-800">
+                          {formatDate(leave.leaveDate)}
+                        </p>
+                      </div>
+                      <span className={getStatusBadge(leave.status)}>
+                        {leave.status}
+                      </span>
+                    </div>
+
+                    <div className="mb-3">
+                      <p className="text-sm text-gray-500">Time</p>
+                      <p className="text-gray-800">
+                        {leave.startTime && leave.endTime
+                          ? `${formatTime(leave.startTime)} - ${formatTime(
+                              leave.endTime
+                            )}`
+                          : "Full Day"}
+                      </p>
+                    </div>
+
+                    <div className="mb-3">
+                      <p className="text-sm text-gray-500">Reason</p>
+                      <p className="text-gray-800">{leave.reason || "-"}</p>
+                    </div>
+
+                    <div className="mb-3">
+                      <p className="text-sm text-gray-500">Remark</p>
+                      <p className="text-gray-800">
+                        {leave.adminRemark || "-"}
+                      </p>
+                    </div>
+
+                    {leave.isActive && leave.status === "Pending" && (
+                      <button
+                        onClick={() => handleCancelLeave(leave.staffLeaveId)}
+                        disabled={cancellingId === leave.staffLeaveId}
+                        className="w-full bg-red-500 hover:bg-red-600 text-white py-2 rounded-lg text-sm disabled:opacity-60"
+                      >
+                        {cancellingId === leave.staffLeaveId
+                          ? "Cancelling..."
+                          : "Cancel Leave"}
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

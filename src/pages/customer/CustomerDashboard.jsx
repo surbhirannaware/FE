@@ -1,0 +1,290 @@
+import React, { useEffect, useState } from "react";
+import toast from "react-hot-toast";
+import API_BASE_URL from "../api";
+
+function CustomerDashboard() {
+  const token = localStorage.getItem("token");
+
+  const [summary, setSummary] = useState(null);
+  const [upcoming, setUpcoming] = useState([]);
+  const [history, setHistory] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [cancellingId, setCancellingId] = useState(null);
+
+  const fetchData = async () => {
+    setLoading(true);
+
+    try {
+      const [res1, res2, res3] = await Promise.all([
+        fetch(`${API_BASE_URL}/api/customer/dashboard/summary`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch(`${API_BASE_URL}/api/customer/dashboard/upcoming`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch(`${API_BASE_URL}/api/customer/dashboard/history`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      ]);
+
+      if (!res1.ok || !res2.ok || !res3.ok) {
+        throw new Error("Failed to load dashboard");
+      }
+
+      const summaryData = await res1.json();
+      const upcomingData = await res2.json();
+      const historyData = await res3.json();
+
+      setSummary(summaryData);
+      setUpcoming(upcomingData);
+      setHistory(historyData);
+    } catch (err) {
+      console.error(err);
+      toast.error(err.message || "Failed to load dashboard");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const cancelAppointment = async (appointmentId) => {
+    try {
+      setCancellingId(appointmentId);
+
+      const res = await fetch(
+        `${API_BASE_URL}/api/appointments/${appointmentId}/cancel`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!res.ok) {
+        const msg = await res.text();
+        throw new Error(msg || "Failed to cancel appointment");
+      }
+
+      toast.success("Appointment cancelled successfully");
+      fetchData();
+    } catch (err) {
+      console.error(err);
+      toast.error(err.message || "Failed to cancel appointment");
+    } finally {
+      setCancellingId(null);
+    }
+  };
+
+  const formatTime = (time) => {
+    if (!time) return "";
+    return new Date(`1970-01-01T${time}`).toLocaleTimeString([], {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+  };
+
+  const badgeClass = (status) => {
+    switch (status) {
+      case "Completed":
+      case "Paid":
+        return "bg-green-100 text-green-700";
+      case "Cancelled":
+      case "Failed":
+        return "bg-red-100 text-red-700";
+      case "Booked":
+      case "Pending":
+        return "bg-yellow-100 text-yellow-700";
+      default:
+        return "bg-slate-100 text-slate-700";
+    }
+  };
+
+  if (loading && !summary) {
+    return (
+      <div className="flex justify-center items-center h-64 text-slate-500">
+        Loading dashboard...
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-7xl mx-auto space-y-8">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border shadow-sm">
+          <p className="text-sm text-slate-500">Upcoming</p>
+          <h2 className="text-4xl font-bold mt-3 text-blue-600">
+            {summary?.upcomingCount || 0}
+          </h2>
+        </div>
+
+        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border shadow-sm">
+          <p className="text-sm text-slate-500">Completed</p>
+          <h2 className="text-4xl font-bold mt-3 text-green-600">
+            {summary?.completedCount || 0}
+          </h2>
+        </div>
+
+        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border shadow-sm">
+          <p className="text-sm text-slate-500">Cancelled</p>
+          <h2 className="text-4xl font-bold mt-3 text-red-600">
+            {summary?.cancelledCount || 0}
+          </h2>
+        </div>
+
+        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border shadow-sm">
+          <p className="text-sm text-slate-500">Total Spent</p>
+          <h2 className="text-4xl font-bold mt-3 text-emerald-600">
+            ₹ {summary?.totalSpent || 0}
+          </h2>
+        </div>
+      </div>
+
+      <div className="bg-white dark:bg-slate-800 rounded-2xl border shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b">
+          <h3 className="text-lg font-semibold">Upcoming Appointments</h3>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-100 uppercase text-xs text-slate-600">
+              <tr>
+                <th className="px-6 py-4 text-left">Date</th>
+                <th className="px-6 py-4 text-left">Time</th>
+                <th className="px-6 py-4 text-left">Services</th>
+                <th className="px-6 py-4 text-left">Staff</th>
+                <th className="px-6 py-4 text-left">Status</th>
+                <th className="px-6 py-4 text-left">Payment</th>
+                <th className="px-6 py-4 text-left">Amount</th>
+                <th className="px-6 py-4 text-left">Action</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {upcoming.length === 0 ? (
+                <tr>
+                  <td colSpan="8" className="text-center py-10 text-slate-500">
+                    No upcoming appointments
+                  </td>
+                </tr>
+              ) : (
+                upcoming.map((a) => (
+                  <tr key={a.appointmentId} className="border-t">
+                    <td className="px-6 py-4">
+                      {new Date(a.appointmentDate).toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-4">
+                      {formatTime(a.startTime)} - {formatTime(a.endTime)}
+                    </td>
+                    <td className="px-6 py-4">{a.services?.join(", ")}</td>
+                    <td className="px-6 py-4">{a.staffName}</td>
+                    <td className="px-6 py-4">
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs font-semibold ${badgeClass(
+                          a.status
+                        )}`}
+                      >
+                        {a.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs font-semibold ${badgeClass(
+                          a.paymentStatus
+                        )}`}
+                      >
+                        {a.paymentStatus}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">₹ {a.totalAmount}</td>
+                    <td className="px-6 py-4">
+                      <button
+                        onClick={() => cancelAppointment(a.appointmentId)}
+                        disabled={cancellingId === a.appointmentId}
+                        className="px-4 py-2 rounded-lg bg-red-600 text-white text-xs font-semibold disabled:opacity-50"
+                      >
+                        {cancellingId === a.appointmentId
+                          ? "Cancelling..."
+                          : "Cancel"}
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="bg-white dark:bg-slate-800 rounded-2xl border shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b">
+          <h3 className="text-lg font-semibold">Appointment History</h3>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-100 uppercase text-xs text-slate-600">
+              <tr>
+                <th className="px-6 py-4 text-left">Date</th>
+                <th className="px-6 py-4 text-left">Time</th>
+                <th className="px-6 py-4 text-left">Services</th>
+                <th className="px-6 py-4 text-left">Staff</th>
+                <th className="px-6 py-4 text-left">Status</th>
+                <th className="px-6 py-4 text-left">Payment</th>
+                <th className="px-6 py-4 text-left">Amount</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {history.length === 0 ? (
+                <tr>
+                  <td colSpan="7" className="text-center py-10 text-slate-500">
+                    No appointment history
+                  </td>
+                </tr>
+              ) : (
+                history.map((a) => (
+                  <tr key={a.appointmentId} className="border-t">
+                    <td className="px-6 py-4">
+                      {new Date(a.appointmentDate).toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-4">
+                      {formatTime(a.startTime)} - {formatTime(a.endTime)}
+                    </td>
+                    <td className="px-6 py-4">{a.services?.join(", ")}</td>
+                    <td className="px-6 py-4">{a.staffName}</td>
+                    <td className="px-6 py-4">
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs font-semibold ${badgeClass(
+                          a.status
+                        )}`}
+                      >
+                        {a.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs font-semibold ${badgeClass(
+                          a.paymentStatus
+                        )}`}
+                      >
+                        {a.paymentStatus}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">₹ {a.totalAmount}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default CustomerDashboard;
