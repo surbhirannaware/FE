@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from "react";
+ import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
-import API_BASE_URL from "../../api";
+import api from "../../api";
 
 function EditCategory() {
   const token = localStorage.getItem("token");
@@ -18,26 +18,25 @@ function EditCategory() {
 
   const fetchCategory = async () => {
     try {
-      const res = await fetch(
-        `${API_BASE_URL}/api/service-categories/${id}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const res = await api.get(`/api/service-categories/${id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-      if (!res.ok) throw new Error("Failed to load category");
-
-      const data = await res.json();
+      const data = res.data;
 
       setForm({
-        categoryName: data.categoryName,
-        isActive: data.isActive,
+        categoryName: data.categoryName || "",
+        isActive: data.isActive ?? true,
       });
     } catch (err) {
       console.error(err);
-      toast.error(err.message || "Failed to load category");
+      toast.error(
+        err.response?.data?.message ||
+          err.response?.data ||
+          "Failed to load category"
+      );
       navigate("/admin/categories");
     } finally {
       setLoading(false);
@@ -59,31 +58,29 @@ function EditCategory() {
     try {
       setSaving(true);
 
-      const res = await fetch(
-        `${API_BASE_URL}/api/service-categories/${id}`,
+      await api.put(
+        `/api/service-categories/${id}`,
         {
-          method: "PUT",
+          categoryName: form.categoryName.trim(),
+          isActive: form.isActive,
+        },
+        {
           headers: {
-            "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({
-            categoryName: form.categoryName.trim(),
-            isActive: form.isActive,
-          }),
         }
       );
-
-      if (!res.ok) {
-        const msg = await res.text();
-        throw new Error(msg || "Failed to update category");
-      }
 
       toast.success("Category updated successfully");
       navigate("/admin/categories");
     } catch (err) {
       console.error(err);
-      toast.error(err.message || "Something went wrong");
+      toast.error(
+        err.response?.data?.message ||
+          err.response?.data ||
+          err.message ||
+          "Something went wrong"
+      );
     } finally {
       setSaving(false);
     }

@@ -1,5 +1,6 @@
- import React, { useEffect, useState } from "react";
-import API_BASE_URL from "../../api";
+import React, { useEffect, useState } from "react";
+import toast from "react-hot-toast";
+import api from "../../api";
 
 export default function AdminLeaves() {
   const [leaves, setLeaves] = useState([]);
@@ -13,19 +14,17 @@ export default function AdminLeaves() {
     try {
       setLoading(true);
 
-      const res = await fetch(
-        `${API_BASE_URL}/api/staff-leaves/admin/pending`,
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        }
-      );
+      const res = await api.get("/api/staff-leaves/admin/pending", {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
 
-      const data = await res.json();
-      setLeaves(data);
+      setLeaves(Array.isArray(res.data) ? res.data : []);
     } catch (error) {
       console.error("Error fetching leaves:", error);
+      toast.error("Failed to load leave requests");
+      setLeaves([]);
     } finally {
       setLoading(false);
     }
@@ -33,25 +32,25 @@ export default function AdminLeaves() {
 
   const updateStatus = async (id, status) => {
     try {
-      await fetch(
-        `${API_BASE_URL}/api/staff-leaves/admin/${id}?status=${status}`,
-        {
-          method: "PUT",
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        }
-      );
+      await api.put(`/api/staff-leaves/admin/${id}?status=${status}`, null, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
 
+      toast.success(`Leave ${status.toLowerCase()} successfully`);
       fetchLeaves();
     } catch (error) {
       console.error("Error updating leave status:", error);
+      toast.error(`Failed to ${status.toLowerCase()} leave`);
     }
   };
 
-  // Format date as dd-mon-yyyy
   const formatDate = (dateString) => {
+    if (!dateString) return "-";
+
     const date = new Date(dateString);
+    if (isNaN(date.getTime())) return "-";
 
     const day = String(date.getDate()).padStart(2, "0");
     const month = date.toLocaleString("en-US", { month: "short" });
@@ -77,7 +76,7 @@ export default function AdminLeaves() {
             className="border p-5 rounded-xl mb-5 shadow-sm bg-white"
           >
             <p className="mb-1">
-              <strong>Staff:</strong> {leave.staff.user.fullName}
+              <strong>Staff:</strong> {leave?.staff?.user?.fullName || "-"}
             </p>
 
             <p className="mb-1">
@@ -85,23 +84,19 @@ export default function AdminLeaves() {
             </p>
 
             <p className="mb-3">
-              <strong>Reason:</strong> {leave.reason}
+              <strong>Reason:</strong> {leave.reason || "-"}
             </p>
 
             <div className="flex gap-3">
               <button
-                onClick={() =>
-                  updateStatus(leave.staffLeaveId, "Approved")
-                }
+                onClick={() => updateStatus(leave.staffLeaveId, "Approved")}
                 className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md"
               >
                 Approve
               </button>
 
               <button
-                onClick={() =>
-                  updateStatus(leave.staffLeaveId, "Rejected")
-                }
+                onClick={() => updateStatus(leave.staffLeaveId, "Rejected")}
                 className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md"
               >
                 Reject

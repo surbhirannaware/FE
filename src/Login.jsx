@@ -12,6 +12,8 @@ function Login() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
+  console.log("ENV URL:", import.meta.env.VITE_API_URL);
+console.log("AXIOS BASE URL:", api.defaults.baseURL);
   const handleLogin = async (e) => {
     e.preventDefault();
 

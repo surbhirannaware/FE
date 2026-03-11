@@ -1,8 +1,7 @@
-import { useEffect, useState } from "react";
-import axios from "axios";
+ import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import React from "react";
-import API_BASE_URL from "../../api";
+import api from "../../api";
 
 function AddService() {
   const [categories, setCategories] = useState([]);
@@ -21,7 +20,7 @@ function AddService() {
 
   const fetchCategories = async () => {
     try {
-      const res = await axios.get(`${API_BASE_URL}/api/services/categories`);
+      const res = await api.get("/api/services/categories");
       setCategories(res.data);
     } catch (err) {
       toast.error("Failed to load categories");
@@ -30,21 +29,21 @@ function AddService() {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setForm({
-      ...form,
+    setForm((prev) => ({
+      ...prev,
       [name]: type === "checkbox" ? checked : value,
-    });
+    }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     try {
-      await axios.post(`${API_BASE_URL}/api/services`, {
+      await api.post("/api/services", {
         ...form,
-        categoryId: parseInt(form.categoryId),
+        categoryId: parseInt(form.categoryId, 10),
         price: parseFloat(form.price),
-        durationMinutes: parseInt(form.durationMinutes),
+        durationMinutes: parseInt(form.durationMinutes, 10),
       });
 
       toast.success("Service added successfully");
@@ -57,7 +56,11 @@ function AddService() {
         isActive: true,
       });
     } catch (err) {
-      toast.error("Error adding service");
+      toast.error(
+        err.response?.data?.message ||
+          err.response?.data ||
+          "Error adding service"
+      );
     }
   };
 
@@ -66,7 +69,6 @@ function AddService() {
       <h2 className="text-2xl font-bold mb-6">Add Service</h2>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Category */}
         <select
           name="categoryId"
           value={form.categoryId}
@@ -82,7 +84,6 @@ function AddService() {
           ))}
         </select>
 
-        {/* Service Name */}
         <input
           type="text"
           name="serviceName"
@@ -93,7 +94,6 @@ function AddService() {
           className="w-full p-2 border rounded"
         />
 
-        {/* Description */}
         <textarea
           name="description"
           placeholder="Description"
@@ -102,7 +102,6 @@ function AddService() {
           className="w-full p-2 border rounded"
         />
 
-        {/* Price */}
         <input
           type="number"
           min="1"
@@ -115,7 +114,6 @@ function AddService() {
           className="w-full p-2 border rounded"
         />
 
-        {/* Duration */}
         <input
           type="number"
           name="durationMinutes"
@@ -126,7 +124,6 @@ function AddService() {
           className="w-full p-2 border rounded"
         />
 
-        {/* Is Active */}
         <label className="flex items-center gap-2">
           <input
             type="checkbox"

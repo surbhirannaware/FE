@@ -1,51 +1,102 @@
-import React , { useEffect, useState } from "react";
+ import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import axios from "axios";
-import API_BASE_URL from "../../api";
+import toast from "react-hot-toast";
+import api from "../../api";
 
 export default function EditService() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [categories, setCategories] = useState([]);
   const [form, setForm] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [id]);
 
   const fetchData = async () => {
-    const token = localStorage.getItem("token");
+    try {
+      setLoading(true);
+      const token = localStorage.getItem("token");
 
-    const serviceRes = await axios.get(
-      `${API_BASE_URL}/api/services/${id}`,
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
+      const [serviceRes, categoryRes] = await Promise.all([
+        api.get(`/api/services/${id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        api.get("/api/services/categories"),
+      ]);
 
-    const categoryRes = await axios.get(
-      `${API_BASE_URL}/api/services/categories`
-    );
+      setForm({
+        ...serviceRes.data,
+        categoryId: serviceRes.data.categoryId?.toString() || "",
+        serviceName: serviceRes.data.serviceName || "",
+        description: serviceRes.data.description || "",
+        price: serviceRes.data.price ?? "",
+        durationMinutes: serviceRes.data.durationMinutes ?? "",
+        isActive: serviceRes.data.isActive ?? true,
+      });
 
-    setForm(serviceRes.data);
-    setCategories(categoryRes.data);
+      setCategories(Array.isArray(categoryRes.data) ? categoryRes.data : []);
+    } catch (err) {
+      console.error(err);
+      toast.error(
+        err.response?.data?.message ||
+          err.response?.data ||
+          "Failed to load service"
+      );
+      navigate("/services");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleUpdate = async (e) => {
     e.preventDefault();
 
-    await axios.put(
-      `${API_BASE_URL}/api/services/${id}`,
-      form,
-      {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`
-        }
-      }
-    );
+    if (!form.serviceName?.trim()) {
+      toast.error("Service name is required");
+      return;
+    }
 
-    navigate("/services");
+    if (!form.categoryId) {
+      toast.error("Category is required");
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      await api.put(
+        `/api/services/${id}`,
+        {
+          ...form,
+          categoryId: parseInt(form.categoryId, 10),
+          price: parseFloat(form.price),
+          durationMinutes: parseInt(form.durationMinutes, 10),
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        }
+      );
+
+      toast.success("Service updated successfully");
+      navigate("/services");
+    } catch (err) {
+      console.error(err);
+      toast.error(
+        err.response?.data?.message ||
+          err.response?.data ||
+          "Failed to update service"
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
-  if (!form) return <div className="p-6">Loading...</div>;
+  if (loading || !form) return <div className="p-6">Loading...</div>;
 
   return (
     <div className="p-6">
@@ -53,25 +104,33 @@ export default function EditService() {
         <h2 className="text-xl font-semibold mb-6">Edit Service</h2>
 
         <form onSubmit={handleUpdate} className="space-y-4">
-
           <input
             value={form.serviceName}
-            onChange={e => setForm({ ...form, serviceName: e.target.value })}
+            onChange={(e) =>
+              setForm({ ...form, serviceName: e.target.value })
+            }
             className="w-full border p-2 rounded-lg"
+            placeholder="Service Name"
           />
 
           <textarea
             value={form.description || ""}
-            onChange={e => setForm({ ...form, description: e.target.value })}
+            onChange={(e) =>
+              setForm({ ...form, description: e.target.value })
+            }
             className="w-full border p-2 rounded-lg"
+            placeholder="Description"
           />
 
           <select
             value={form.categoryId}
-            onChange={e => setForm({ ...form, categoryId: e.target.value })}
+            onChange={(e) =>
+              setForm({ ...form, categoryId: e.target.value })
+            }
             className="w-full border p-2 rounded-lg"
           >
-            {categories.map(cat => (
+            <option value="">Select Category</option>
+            {categories.map((cat) => (
               <option key={cat.categoryId} value={cat.categoryId}>
                 {cat.categoryName}
               </option>
@@ -81,19 +140,38 @@ export default function EditService() {
           <input
             type="number"
             value={form.price}
-            onChange={e => setForm({ ...form, price: e.target.value })}
+            onChange={(e) => setForm({ ...form, price: e.target.value })}
             className="w-full border p-2 rounded-lg"
+            placeholder="Price"
           />
 
           <input
             type="number"
             value={form.durationMinutes}
-            onChange={e => setForm({ ...form, durationMinutes: e.target.value })}
+            onChange={(e) =>
+              setForm({ ...form, durationMinutes: e.target.value })
+            }
             className="w-full border p-2 rounded-lg"
+            placeholder="Duration (Minutes)"
           />
 
-          <button className="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700">
-            Update Service
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={form.isActive}
+              onChange={(e) =>
+                setForm({ ...form, isActive: e.target.checked })
+              }
+            />
+            Active
+          </label>
+
+          <button
+            type="submit"
+            disabled={saving}
+            className="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 disabled:opacity-50"
+          >
+            {saving ? "Updating..." : "Update Service"}
           </button>
         </form>
       </div>

@@ -1,7 +1,7 @@
-import React, { useState } from "react";
+ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
-import API_BASE_URL from "../../api";
+import api from "../../api";
 
 function AddCategory() {
   const token = localStorage.getItem("token");
@@ -25,28 +25,29 @@ function AddCategory() {
     try {
       setSaving(true);
 
-      const res = await fetch(`${API_BASE_URL}/api/service-categories`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
+      await api.post(
+        "/api/service-categories",
+        {
           categoryName: form.categoryName.trim(),
           isActive: form.isActive,
-        }),
-      });
-
-      if (!res.ok) {
-        const msg = await res.text();
-        throw new Error(msg || "Failed to add category");
-      }
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
 
       toast.success("Category added successfully");
       navigate("/admin/categories");
     } catch (err) {
       console.error(err);
-      toast.error(err.message || "Something went wrong");
+      toast.error(
+        err.response?.data?.message ||
+          err.response?.data ||
+          err.message ||
+          "Something went wrong"
+      );
     } finally {
       setSaving(false);
     }
