@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import React from "react";
 import toast from "react-hot-toast";
 import jwtDecode from "jwt-decode";
-import API_BASE_URL from "./api";
+import api from "./api";
 
 function Login() {
   const navigate = useNavigate();
@@ -15,12 +15,6 @@ function Login() {
   const handleLogin = async (e) => {
     e.preventDefault();
 
-  /* const decoded = jwtDecode(data.token);
-
-  const role =
-  decoded.role ||
-  decoded["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"]; */
-    // 🔹 Indian Phone Validation
     const phoneRegex = /^[6-9]\d{9}$/;
     if (!phoneRegex.test(phoneNo)) {
       toast.error("Enter valid 10-digit Indian mobile number");
@@ -34,55 +28,43 @@ function Login() {
       localStorage.removeItem("roles");
       localStorage.removeItem("expiresAt");
 
-      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phoneNo, password }),
+      const response = await api.post("/api/auth/login", {
+        phoneNo,
+        password,
       });
 
-      if (response.status === 401) {
-        toast.error("Invalid phone number or password");
-        return;
+      const data = response.data;
+
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("expiresAt", data.expiresAt);
+
+      const decoded = jwtDecode(data.token);
+
+      const roleClaim =
+        decoded.role ||
+        decoded["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"];
+
+      const roles = Array.isArray(roleClaim) ? roleClaim : [roleClaim];
+
+      localStorage.setItem("roles", JSON.stringify(roles));
+
+      toast.success("Login successful 🎉");
+
+      if (roles.includes("Admin")) {
+        navigate("/dashboard");
+      } else if (roles.includes("Staff")) {
+        navigate("/staff");
+      } else if (roles.includes("Customer")) {
+        navigate("/customer/dashboard");
+      } else {
+        navigate("/unauthorized");
       }
-
-      if (!response.ok) {
-        throw new Error("Login failed. Please try again.");
-      }
-
-      const data = await response.json();
-
-// ✅ Store token
-localStorage.setItem("token", data.token);
-localStorage.setItem("expiresAt", data.expiresAt);
-
-// ✅ Decode token properly
-const decoded = jwtDecode(data.token);
-
-const roleClaim =
-  decoded.role ||
-  decoded["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"];
-
-const roles = Array.isArray(roleClaim)
-  ? roleClaim
-  : [roleClaim];
-
-localStorage.setItem("roles", JSON.stringify(roles));
-
-toast.success("Login successful 🎉");
-
-
-// ✅ Redirect based on role
-if (roles.includes("Admin")) {
-  navigate("/dashboard");
-} else if (roles.includes("Staff")) {
-  navigate("/staff");
-}else if (roles.includes("Customer")) {
-  navigate("/customer/dashboard");
-} else {
-  navigate("/unauthorized");
-} 
     } catch (err) {
-      toast.error(err.message);
+      if (err.response?.status === 401) {
+        toast.error("Invalid phone number or password");
+      } else {
+        toast.error(err.response?.data?.message || "Login failed. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -90,8 +72,6 @@ if (roles.includes("Admin")) {
 
   return (
     <div className="min-h-screen flex bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
-
-      {/* Left Image Section */}
       <div className="hidden md:block md:w-1/2">
         <img
           src="https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9"
@@ -100,23 +80,18 @@ if (roles.includes("Admin")) {
         />
       </div>
 
-      {/* Right Login Section */}
       <div className="flex-1 flex items-center justify-center p-6">
-
         <div className="w-full max-w-md">
-
           <h1 className="text-4xl font-bold text-center text-slate-800 dark:text-slate-100 mb-8">
             Salon App
           </h1>
 
           <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm rounded-2xl p-8 transition-colors duration-300">
-
             <h2 className="text-2xl font-semibold text-center text-slate-800 dark:text-slate-100 mb-6">
               Login
             </h2>
 
             <form onSubmit={handleLogin} className="space-y-4">
-
               <input
                 type="text"
                 placeholder="Phone Number"
@@ -142,7 +117,6 @@ if (roles.includes("Admin")) {
               >
                 {loading ? "Logging in..." : "Login"}
               </button>
-
             </form>
 
             <div className="mt-6 text-center">
@@ -156,7 +130,6 @@ if (roles.includes("Admin")) {
                 </span>
               </p>
             </div>
-
           </div>
         </div>
       </div>
